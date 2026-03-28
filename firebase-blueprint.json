@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "role": { "type": "string", "enum": ["admin_kedai", "admin_galon"], "description": "User role" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Penjualan": {
+      "title": "Penjualan",
+      "description": "Sales record linked to a user.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "description": "Reference to the user who created the record" },
+        "nama_menu": { "type": "string", "description": "Name of the menu item" },
+        "tanggal": { "type": "string", "format": "date", "description": "Date of sale" },
+        "harga_jual": { "type": "integer", "description": "Selling price per unit" },
+        "hpp": { "type": "integer", "description": "Cost of goods sold per unit" },
+        "jumlah_terjual": { "type": "integer", "description": "Quantity sold" },
+        "margin_per_cup": { "type": "integer", "description": "Profit margin per unit" },
+        "total_profit": { "type": "integer", "description": "Total profit for this record" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of record creation" }
+      },
+      "required": ["user_id", "nama_menu", "tanggal", "harga_jual", "hpp", "jumlah_terjual", "margin_per_cup", "total_profit", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/penjualan/{saleId}": {
+      "schema": "Penjualan",
+      "description": "Sales record documents."
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Sales Management App",
+  "description": "A web-based sales management application with role-based access, CRUD for sales data, and weekly/monthly recaps.",
+  "requestFramePermissions": []
+}

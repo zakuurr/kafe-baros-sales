@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required, email format)
+    //   - role: string (required, enum: admin_kedai, admin_galon)
+    //
+    // Collection: penjualan
+    // Document ID: {saleId}
+    // Fields:
+    //   - user_id: string (required, owner UID)
+    //   - nama_menu: string (required)
+    //   - tanggal: string (required, date format)
+    //   - harga_jual: number (required)
+    //   - hpp: number (required)
+    //   - jumlah_terjual: number (required)
+    //   - margin_per_cup: number (required)
+    //   - total_profit: number (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin_kedai', 'admin_galon'] ||
+         request.auth.token.email == "ezakurnia50@gmail.com");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasOnly(['uid', 'name', 'email', 'role']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin_kedai', 'admin_galon'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasOnly(['nama_menu', 'harga_jual', 'hpp', 'user_id', 'createdAt']) &&
+             data.nama_menu is string && data.nama_menu.size() > 0 && data.nama_menu.size() < 200 &&
+             data.harga_jual is number && data.harga_jual >= 0 &&
+             data.hpp is number && data.hpp >= 0 &&
+             data.user_id is string && data.user_id == request.auth.uid &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidMeterRecord(data) {
+      return data.keys().hasOnly(['user_id', 'tanggal', 'meter_awal', 'meter_akhir', 'total_pemakaian', 'createdAt']) &&
+             data.user_id is string && data.user_id == request.auth.uid &&
+             data.tanggal is string && data.tanggal.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.meter_awal is number && data.meter_awal >= 0 &&
+             data.meter_akhir is number && data.meter_akhir >= data.meter_awal &&
+             data.total_pemakaian is number &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasOnly(['user_id', 'harga_air_per_m3', 'updatedAt']) &&
+             data.user_id is string && data.user_id == request.auth.uid &&
+             data.harga_air_per_m3 is number && data.harga_air_per_m3 >= 0 &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidPenjualan(data) {
+      return data.keys().hasOnly(['user_id', 'nama_menu', 'tanggal', 'harga_jual', 'hpp', 'jumlah_terjual', 'margin_per_cup', 'total_profit', 'note', 'createdAt']) &&
+             data.user_id is string && data.user_id == request.auth.uid &&
+             data.nama_menu is string && data.nama_menu.size() > 0 && data.nama_menu.size() < 200 &&
+             data.tanggal is string && data.tanggal.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.harga_jual is number && data.harga_jual >= 0 &&
+             data.hpp is number && data.hpp >= 0 &&
+             data.jumlah_terjual is number && data.jumlah_terjual >= 0 &&
+             data.margin_per_cup is number &&
+             data.total_profit is number &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 500)) &&
+             data.createdAt is timestamp;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+    }
+
+    match /penjualan/{saleId} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidPenjualan(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid && isValidPenjualan(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidProduct(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid && isValidProduct(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    match /meter_records/{recordId} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidMeterRecord(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid && isValidMeterRecord(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated() && (request.auth.uid == settingId || isAdmin());
+      allow create, update: if isAuthenticated() && request.auth.uid == settingId && isValidSettings(request.resource.data);
+    }
+    
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}
