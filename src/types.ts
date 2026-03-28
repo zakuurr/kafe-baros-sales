@@ -48,3 +48,12 @@ export interface Settings {
   harga_air_per_m3: number;
   updatedAt: Timestamp;
 }
+
+export interface OperationalCost {
+  id?: string;
+  user_id: string;
+  keterangan: string;
+  nominal: number;
+  tanggal: string; // YYYY-MM-DD
+  createdAt: Timestamp;
+}

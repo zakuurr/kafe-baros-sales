@@ -38,9 +38,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin_kedai', 'admin_galon'] ||
-         request.auth.token.email == "ezakurnia50@gmail.com");
+        request.auth.token.email == "ezakurnia50@gmail.com";
     }
 
     function isValidUser(data) {
@@ -91,6 +89,14 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidOperationalCost(data) {
+      return data.user_id is string && data.user_id == request.auth.uid &&
+             data.keterangan is string && data.keterangan.size() > 0 && data.keterangan.size() < 500 &&
+             (data.nominal is int || data.nominal is float || data.nominal is number) && data.nominal >= 0 &&
+             data.tanggal is string && data.tanggal.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.createdAt is timestamp;
+    }
+
     // Rules
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
@@ -122,6 +128,13 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if isAuthenticated() && (request.auth.uid == settingId || isAdmin());
       allow create, update: if isAuthenticated() && request.auth.uid == settingId && isValidSettings(request.resource.data);
+    }
+
+    match /operational_costs/{costId} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidOperationalCost(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid && isValidOperationalCost(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
     }
     
     match /test/connection {

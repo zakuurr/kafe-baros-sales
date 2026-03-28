@@ -27,6 +27,19 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of record creation" }
       },
       "required": ["user_id", "nama_menu", "tanggal", "harga_jual", "hpp", "jumlah_terjual", "margin_per_cup", "total_profit", "createdAt"]
+    },
+    "OperationalCost": {
+      "title": "OperationalCost",
+      "description": "Operational cost record.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "description": "Reference to the user who created the record" },
+        "keterangan": { "type": "string", "description": "Description of the cost" },
+        "nominal": { "type": "integer", "description": "Amount of the cost" },
+        "tanggal": { "type": "string", "format": "date", "description": "Date of the cost" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of record creation" }
+      },
+      "required": ["user_id", "keterangan", "nominal", "tanggal", "createdAt"]
     }
   },
   "firestore": {
@@ -37,6 +50,10 @@
     "/penjualan/{saleId}": {
       "schema": "Penjualan",
       "description": "Sales record documents."
+    },
+    "/operational_costs/{costId}": {
+      "schema": "OperationalCost",
+      "description": "Operational cost documents."
     }
   }
 }

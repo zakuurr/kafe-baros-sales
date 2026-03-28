@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, orderBy, Timestamp, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db, OperationType, handleFirestoreError } from '../firebase';
-import { UserProfile, SalesRecord, Product, MeterRecord, Settings } from '../types';
+import { UserProfile, SalesRecord, Product, MeterRecord, Settings, OperationalCost } from '../types';
 import SalesTable from './SalesTable';
 import SalesChart from './SalesChart';
 import Recap from './Recap';
 import { ProductManager } from './ProductManager';
 import { MeterControl } from './MeterControl';
 import { WaterSettings } from './WaterSettings';
-import { LogOut, LayoutDashboard, Table, BarChart3, TrendingUp, User, Package, Gauge, Droplets } from 'lucide-react';
+import { OperationalCosts } from './OperationalCosts';
+import { LogOut, LayoutDashboard, Table, BarChart3, TrendingUp, User, Package, Gauge, Droplets, Wallet } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -25,8 +26,9 @@ export default function Dashboard({ profile, onLogout }: DashboardProps) {
   const [sales, setSales] = useState<SalesRecord[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [meterRecords, setMeterRecords] = useState<MeterRecord[]>([]);
+  const [operationalCosts, setOperationalCosts] = useState<OperationalCost[]>([]);
   const [waterSettings, setWaterSettings] = useState<Settings | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'menu' | 'data' | 'recap' | 'meter' | 'water'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'menu' | 'data' | 'recap' | 'meter' | 'water' | 'costs'>('overview');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,6 +68,16 @@ export default function Dashboard({ profile, onLogout }: DashboardProps) {
       });
     }
 
+    // Fetch Operational Costs
+    const qCosts = query(
+      collection(db, 'operational_costs'), 
+      where('user_id', '==', profile.uid),
+      orderBy('tanggal', 'desc')
+    );
+    const unsubCosts = onSnapshot(qCosts, (snapshot) => {
+      setOperationalCosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OperationalCost)));
+    });
+
     // Fetch Water Settings (for admin_galon)
     let unsubSettings = () => {};
     if (profile.role === 'admin_galon') {
@@ -80,6 +92,7 @@ export default function Dashboard({ profile, onLogout }: DashboardProps) {
       unsubProducts();
       unsubSales();
       unsubMeter();
+      unsubCosts();
       unsubSettings();
     };
   }, [profile.uid, profile.role]);
@@ -224,6 +237,17 @@ export default function Dashboard({ profile, onLogout }: DashboardProps) {
             <BarChart3 className="w-5 h-5" />
             Rekap
           </button>
+
+          <button
+            onClick={() => setActiveTab('costs')}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+              activeTab === 'costs' ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+            )}
+          >
+            <Wallet className="w-5 h-5" />
+            Biaya Operasional
+          </button>
         </nav>
 
         <div className="p-4 border-t border-gray-100">
@@ -246,6 +270,7 @@ export default function Dashboard({ profile, onLogout }: DashboardProps) {
              activeTab === 'data' ? (profile.role === 'admin_galon' ? 'Kasir' : 'Data Penjualan') : 
              activeTab === 'meter' ? 'Kontrol Meteran' :
              activeTab === 'water' ? 'Harga Air per m³' :
+             activeTab === 'costs' ? 'Biaya Operasional' :
              'Sales Recap'}
           </h2>
           <p className="text-gray-500">Manage and monitor your business sales effectively.</p>
@@ -356,7 +381,11 @@ export default function Dashboard({ profile, onLogout }: DashboardProps) {
             )}
 
             {activeTab === 'recap' && (
-              <Recap sales={sales} meterRecords={meterRecords} waterPrice={waterSettings?.harga_air_per_m3 || 0} role={profile.role} />
+              <Recap sales={sales} meterRecords={meterRecords} operationalCosts={operationalCosts} waterPrice={waterSettings?.harga_air_per_m3 || 0} role={profile.role} userName={profile.name} />
+            )}
+
+            {activeTab === 'costs' && (
+              <OperationalCosts />
             )}
           </div>
         )}
